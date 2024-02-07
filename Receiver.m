@@ -54,21 +54,30 @@ ipacket = 1;                              %initialize packet counter
 R_next = 0;                               %initialize next frame expected (sequence number)
 
 %------------- START EDITING HERE --------------
-error('You must complete the Receiver function!!!!!') % comment this line to implement the receiver
+%error('You must complete the Receiver function!!!!!') % comment this line to implement the receiver
 
 
 while ipacket<=nPackets 
     
     %1 check for data
-    nBitsOverhead = [32]; %define the number of overhead bits here (scalar)
+    nBitsOverhead = [2]; %define the number of overhead bits here (scalar)
     ExpectedLengtOfFrame = nBitsPacket+nBitsOverhead; %this is the length of the frame we should receive
     Y = ReadFromChannel(Channel, ExpectedLengtOfFrame);
     
     if ~isnan(Y) %if data received
         disp(['Received packet: ' num2str(ipacket)])
-        %2-3 if data correctly received send ack and store data (if not received earlier)       
+        %2-3 if data correctly received send ack and store data (if not received earlier)
+        [bError]=ErrorCheck(Y); %uses function ErrorCheck to parity check data. Error free returns 0, otherwise 1.
+        ackframe = Y(1);    %adds the header from received data to ackframe
+        if bError==0    %runs if data was error-free
+            if ackframe == R_next   %checks if S_last=R_next
+                infopackets(ipacket,:)=Y(2:(ExpectedLengtOfFrame-1));   %save packet minus header and trailer bits
+                R_next=bitxor(R_next,1);    %bit addition by 1. 1 becomes 0 and 0 becomes 1
+                WriteToChannel(Channel,R_next) %sends Ack
+                ipacket=ipacket+1; %move on the next packet
+            end
+        end
         %implement rest of receiver side of stop-and-wait ARQ protocol below (incl. error check etc.)
-        WriteToChannel(Channel,ackframe)
         %send ack by using: WriteToChannel(Channel,ackframe) where ackframe is your ackknowledgement frame
         %Use the function [bError] = ErrorCheck(data) for error check of received data, it uses parity check 
 

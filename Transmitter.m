@@ -117,69 +117,47 @@ ipacket = 1;         %initialize packet counter
 S_last = 0;          %initialize sequence number for transmitter
 
 %------------- BEGIN EDITING HERE --------------
-error('You must complete the Transmitter function!!!!!') % comment this line to implement the transmitter
+%error('You must complete the Transmitter function!!!!!') % comment this line to implement the transmitter
 
-RTTsaveFlag=0;               % set it to '1' if you want to save recorded RTT.
-nBitsOverhead = [32]; %specify the number of overhead bits here (scalar)
-cansend=true
+RTTsaveFlag=1;               % set it to '1' if you want to save recorded RTT.
+nBitsOverhead = [2]; %specify the number of overhead bits here (scalar)
+
 while ipacket<=size(packages,1)
 
-    
     %1 retrieve current packet according to packet counter
     packet = packages(ipacket,:);
-
     
     %2 embedd packet in frame: use the code to create frames (add
-
     %  header and trailer, ...): you must use the function pkg2frame!
     %  it forms your frame as [header, packet,parity]
     % it also implements parity adding for error checking in reciever
     frame = pkg2frame(packet, S_last);
-
     
     %3 Send current frame
+    LengthOfHeader = 1; %used when reading the ackframe from receiver
+    
     WriteToChannel(Channel, frame)
     disp(['Transmit packet: ' num2str(ipacket)])
-    StartTimer=tic; % Start the timer
-    S_last = S_last + 1;
-    canSend = false;
-    
+
     %4-6 stop and wait for ack: implement the rest of the transmitter side
+    timer=tic;  %start timer
+    t_out=0.5;  %temporary timeout value for the timer
+   
+    while true  %loop will run until either timeout or correctly received ack
+        if toc(timer)>t_out %breaks loop if timeout
+            break;
+        end
 
-    % stop-and-wait ARQ protocol here 
-% Initialize variables
-canSend = true;
-
-% Main loop
-while true
-    % Placeholder for frame creation, storage, and sending
-    MakeFrame(S_last); % Create the frame with sequence number S_last, this is frame=pkg2frame
-    StoreFrame(S_last); % Store a copy of the frame
-    SendFrame(S_last); % Send the frame, this is writetochannel in this.
-    StartTimer(); % Start the timer
-
-    % Update sequence number and canSend flag
-    S_last = S_last + 1;
-    canSend = false;
-
-    % Wait for an event (ACK or timeout)
-    WaitForEvent(); % Sleep until an event occurs
-
-    if Event(ArrivalNotification) % Check if an ACK has arrived
-        ackframe = ReadFromChannel(channel,Framelength); % Receive the ACK frame
-        if ~corrupted(ackframe) && ackframe == S_last % Check if ACK is valid and not corrupted
-            StopTimer=toc(StartTimer); % Stop the timer
-            PurgeFrame(S_last - 1); % Purge the stored frame
-            canSend = true; % Allow sending of next frame
+        Y = ReadFromChannel(Channel, LengthOfHeader);   %reads ack from receiver
+        if Y==bitxor(S_last,1)  %if R_next = S_last+1 (bitwise), increase ipacket and S_last (bitwise) by 1 and break loop
+            ipacket=ipacket+1;  %move on to next packet
+            S_last=bitxor(S_last,1); %bit addition by 1. 1 becomes 0 and 0 becomes 1
+            break;
         end
     end
-
-    if Event(TimeOut) % Check if the timer expired
-        StartTimer(); % Restart the timer
-        ResendFrame(S_last - 1); % Resend the stored frame
-    end
-end
-
+    
+    % stop-and-wait ARQ protocol here 
+   
     % hint: use timer = tic; to start a timer, and time = toc(timer); to
 
     % get the time that has passed since timer was started 
@@ -188,7 +166,7 @@ end
          
 end
 
-
+disp([num2str(RTT)])
 
 %------------- STOP EDITING HERE --------------
 
